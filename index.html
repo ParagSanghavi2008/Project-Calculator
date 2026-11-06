@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#11131a">
+  <title>CalcMate — Calculator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101218;
+      --panel: rgba(28, 31, 42, .88);
+      --key: #242733;
+      --key-hover: #303442;
+      --ink: #f6f5f2;
+      --muted: #8d91a1;
+      --accent: #b9f36a;
+      --accent-ink: #19220d;
+      --special: #333746;
+      --shadow: 0 28px 80px rgba(0,0,0,.48);
+      --key-edge: #171922;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100svh; display: grid; place-items: center;
+      padding: max(20px, env(safe-area-inset-top)) 18px max(20px, env(safe-area-inset-bottom));
+      background:
+        radial-gradient(circle at 15% 22%, rgba(185,243,106,.11), transparent 24rem),
+        radial-gradient(circle at 85% 78%, rgba(109,129,255,.13), transparent 27rem),
+        linear-gradient(145deg, #171a22, var(--bg) 62%, #11151b);
+      background-size: 130% 130%; animation: ambient-drift 16s ease-in-out infinite alternate;
+      color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .calculator { position:relative; isolation:isolate; overflow:hidden; width: min(100%, 390px); padding: 22px; border: 1px solid rgba(255,255,255,.12); border-radius: 30px; background: linear-gradient(145deg, rgba(37,40,52,.96), rgba(22,24,33,.96)); box-shadow: 0 34px 90px rgba(0,0,0,.56), inset 1px 1px 0 rgba(255,255,255,.12), inset -1px -1px 0 rgba(0,0,0,.35); backdrop-filter: blur(22px); animation: panel-arrive .7s cubic-bezier(.2,.8,.2,1) both; }
+    .calculator::before { content:""; position:absolute; z-index:-1; width:220px; height:220px; right:-120px; top:-120px; border-radius:50%; background:rgba(185,243,106,.13); filter:blur(35px); pointer-events:none; }
+    .topline { display: flex; justify-content: space-between; align-items: center; margin: 2px 2px 20px; }
+    .brand { display:flex; align-items:center; gap:10px; font-size: 13px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+    .orb { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 16px rgba(185,243,106,.65); animation: orb-breathe 2.8s ease-in-out infinite; }
+    .hint { color: var(--muted); font-size: 11px; letter-spacing: .04em; }
+    .display { min-height: 132px; display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-end; padding: 8px 4px 22px; overflow:hidden; }
+    .expression { width:100%; min-height: 22px; color: var(--muted); text-align:right; font-size: clamp(14px, 4vw, 18px); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .result { max-width:100%; margin-top: 8px; font-size: clamp(42px, 12vw, 58px); font-weight: 350; letter-spacing: -.055em; line-height:1.1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .keys { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; }
+    button { position:relative; min-width:0; width:100%; height:auto; aspect-ratio:1; border:1px solid rgba(255,255,255,.09); border-radius:50%; background:linear-gradient(145deg, #303340, #222530 72%); color:var(--ink); font:inherit; font-size:24px; font-weight:500; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; user-select:none; box-shadow:0 6px 0 #171922, 0 9px 13px rgba(0,0,0,.3), inset 1px 1px 0 rgba(255,255,255,.14), inset -2px -3px 5px rgba(0,0,0,.18); transition:transform .14s cubic-bezier(.2,.8,.2,1), background .16s ease, box-shadow .16s ease, filter .16s ease; }
+    button:hover { filter:brightness(1.13); transform:translateY(-2px); box-shadow:0 8px 0 #171922, 0 12px 17px rgba(0,0,0,.35), inset 1px 1px 0 rgba(255,255,255,.17); }
+    button:active, button.pressed { transform:translateY(4px) scale(.97); box-shadow:0 1px 0 #171922, 0 3px 6px rgba(0,0,0,.25), inset 1px 2px 5px rgba(0,0,0,.2); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .utility { background:linear-gradient(145deg, #414555, #303442 78%); color:#e2e4eb; font-size:17px; box-shadow:0 6px 0 #20232d, 0 9px 13px rgba(0,0,0,.3), inset 1px 1px 0 rgba(255,255,255,.17); }
+    .operator { color:var(--accent); background:linear-gradient(145deg, #3a4431, #252c23 78%); box-shadow:0 6px 0 #171d16, 0 9px 13px rgba(0,0,0,.3), inset 1px 1px 0 rgba(214,255,168,.16); }
+    .equals { color:var(--accent-ink); font-size:28px; background:linear-gradient(145deg, #d6ff9c, #a8e956 78%); border-color:rgba(235,255,210,.5); box-shadow:0 6px 0 #719d36, 0 9px 15px rgba(0,0,0,.32), inset 1px 1px 0 rgba(255,255,255,.65); }
+    .equals:hover { filter:brightness(1.08); box-shadow:0 8px 0 #719d36, 0 12px 18px rgba(0,0,0,.36), inset 1px 1px 0 rgba(255,255,255,.7); }
+    .equals:active, .equals.pressed { box-shadow:0 1px 0 #719d36, 0 3px 6px rgba(0,0,0,.25), inset 1px 2px 5px rgba(70,100,30,.2); }
+    .zero { text-align:center; }
+    .footer { margin-top:16px; color:#676c7b; font-size:10px; text-align:center; letter-spacing:.08em; }
+    @media (max-width:360px) { .calculator { padding:17px; border-radius:25px; } .keys { gap:8px; } }
+    @keyframes panel-arrive { from { opacity:0; transform:translateY(18px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+    @keyframes ambient-drift { from { background-position:0% 0%; } to { background-position:100% 100%; } }
+    @keyframes orb-breathe { 50% { box-shadow:0 0 23px rgba(185,243,106,.9); transform:scale(1.16); } }
+    @media (min-width:700px) { .calculator { transform:translateY(-1vh); } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="calculator" aria-label="Calculator">
+    <div class="topline"><div class="brand"><span class="orb"></span> CalcMate</div><span class="hint">POCKET CALCULATOR</span></div>
+    <section class="display" aria-live="polite" aria-atomic="true">
+      <div class="expression" id="expression">Ready when you are</div>
+      <output class="result" id="result">0</output>
+    </section>
+    <div class="keys" aria-label="Calculator keys">
+      <button class="utility" data-action="clear" aria-label="Clear all">AC</button>
+      <button class="utility" data-action="delete" aria-label="Delete last digit">⌫</button>
+      <button class="utility" data-action="sqrt" aria-label="Square root">√x</button>
+      <button class="operator" data-op="/" aria-label="Divide">÷</button>
+
+      <button data-digit="7">7</button><button data-digit="8">8</button><button data-digit="9">9</button><button class="operator" data-op="*" aria-label="Multiply">×</button>
+      <button data-digit="4">4</button><button data-digit="5">5</button><button data-digit="6">6</button><button class="operator" data-op="-" aria-label="Subtract">−</button>
+      <button data-digit="1">1</button><button data-digit="2">2</button><button data-digit="3">3</button><button class="operator" data-op="+" aria-label="Add">+</button>
+      <button class="utility" data-action="cbrt" aria-label="Cube root">∛x</button><button class="zero" data-digit="0">0</button><button data-action="decimal" aria-label="Decimal point">.</button><button class="equals" data-action="equals" aria-label="Equals">=</button>
+    </div>
+    <div class="footer">A LITTLE CLARITY, ONE NUMBER AT A TIME</div>
+  </main>
+<script>
+(() => {
+  const resultEl = document.getElementById('result');
+  const expressionEl = document.getElementById('expression');
+  let current = '0';
+  let stored = null;
+  let operator = null;
+  let waitingForOperand = false;
+  let justEvaluated = false;
+
+  const pretty = (value) => value.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−');
+  function show(value = current) { resultEl.textContent = value; }
+  function format(number) {
+    if (!Number.isFinite(number)) throw new Error('Result is outside the supported range');
+    const rounded = Number.parseFloat(number.toPrecision(12));
+    return String(rounded);
+  }
+  function inputDigit(digit) {
+    if (waitingForOperand || justEvaluated) { current = digit; waitingForOperand = false; justEvaluated = false; }
+    else if (current === '0') current = digit;
+    else if (current.replace('-', '').length < 16) current += digit;
+    show();
+  }
+  function inputDecimal() {
+    if (waitingForOperand || justEvaluated) { current = '0.'; waitingForOperand = false; justEvaluated = false; }
+    else if (!current.includes('.')) current += '.';
+    show();
+  }
+  function calculate(a, op, b) {
+    if (op === '+') return a + b;
+    if (op === '-') return a - b;
+    if (op === '*') return a * b;
+    if (op === '/') { if (b === 0) throw new Error('Cannot divide by zero'); return a / b; }
+    return b;
+  }
+  function setOperator(next) {
+    const input = Number(current);
+    if (operator && !waitingForOperand) {
+      try { stored = calculate(stored, operator, input); current = format(stored); show(); }
+      catch (error) { fail(error.message); return; }
+    } else stored = input;
+    operator = next; waitingForOperand = true; justEvaluated = false;
+    expressionEl.textContent = `${format(stored)} ${pretty(next)}`;
+  }
+  function equals() {
+    if (!operator || stored === null) return;
+    const left = stored, right = Number(current), op = operator;
+    try {
+      const value = format(calculate(left, op, right));
+      expressionEl.textContent = `${format(left)} ${pretty(op)} ${format(right)} =`;
+      current = value; stored = null; operator = null; waitingForOperand = true; justEvaluated = true; show();
+    } catch (error) { fail(error.message); }
+  }
+  function unary(kind) {
+    const value = Number(current);
+    try {
+      let answer;
+      if (kind === 'sqrt') { if (value < 0) throw new Error('Square root needs a non-negative number'); answer = Math.sqrt(value); }
+      else answer = Math.cbrt(value);
+      expressionEl.textContent = `${kind === 'sqrt' ? '√' : '∛'}(${format(value)})`;
+      current = format(answer); stored = null; operator = null; waitingForOperand = true; justEvaluated = true; show();
+    } catch (error) { fail(error.message); }
+  }
+  function fail(message) { expressionEl.textContent = message; current = '0'; stored = null; operator = null; waitingForOperand = true; justEvaluated = false; show('Error'); }
+  function clear() { current = '0'; stored = null; operator = null; waitingForOperand = false; justEvaluated = false; expressionEl.textContent = 'Ready when you are'; show(); }
+  function removeLast() {
+    if (justEvaluated || waitingForOperand) { clear(); return; }
+    current = current.length > 1 ? current.slice(0, -1) : '0';
+    if (current === '-') current = '0';
+    show();
+  }
+  let audioContext;
+  function playKeySound() {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      audioContext ||= new AudioContextClass();
+      if (audioContext.state === 'suspended') audioContext.resume();
+      const now = audioContext.currentTime;
+      // A short keycap clack: a muted impact under a crisp, very brief key noise.
+      const length = Math.floor(audioContext.sampleRate * 0.028);
+      const buffer = audioContext.createBuffer(1, length, audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
+      const noise = audioContext.createBufferSource();
+      const filter = audioContext.createBiquadFilter();
+      const noiseGain = audioContext.createGain();
+      noise.buffer = buffer; filter.type = 'bandpass'; filter.frequency.value = 1750; filter.Q.value = 0.7;
+      noiseGain.gain.setValueAtTime(0.16, now); noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.028);
+      noise.connect(filter).connect(noiseGain).connect(audioContext.destination); noise.start(now);
+
+      const thock = audioContext.createOscillator();
+      const thockGain = audioContext.createGain();
+      thock.type = 'sine'; thock.frequency.setValueAtTime(210 + Math.random() * 55, now);
+      thock.frequency.exponentialRampToValueAtTime(95, now + 0.025);
+      thockGain.gain.setValueAtTime(0.11, now); thockGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+      thock.connect(thockGain).connect(audioContext.destination); thock.start(now); thock.stop(now + 0.032);
+    } catch (_) { /* Sound is optional when the browser blocks audio. */ }
+  }
+  function activate(button) {
+    playKeySound();
+    if (button.dataset.digit !== undefined) inputDigit(button.dataset.digit);
+    else if (button.dataset.op) setOperator(button.dataset.op);
+    else switch (button.dataset.action) {
+      case 'decimal': inputDecimal(); break;
+      case 'equals': equals(); break;
+      case 'clear': clear(); break;
+      case 'delete': removeLast(); break;
+      case 'sqrt': unary('sqrt'); break;
+      case 'cbrt': unary('cbrt'); break;
+    }
+    if (navigator.vibrate) navigator.vibrate(8);
+  }
+  document.querySelectorAll('button').forEach(button => {
+    button.addEventListener('click', () => activate(button));
+    button.addEventListener('pointerdown', () => button.classList.add('pressed'));
+    for (const event of ['pointerup', 'pointercancel', 'pointerleave']) button.addEventListener(event, () => button.classList.remove('pressed'));
+  });
+  document.addEventListener('keydown', event => {
+    let handled = true;
+    if (/^[0-9]$/.test(event.key)) inputDigit(event.key);
+    else if (event.key === '.' || event.key === ',') inputDecimal();
+    else if (['+', '-', '*', '/'].includes(event.key)) setOperator(event.key);
+    else if (event.key === 'Enter' || event.key === '=') { event.preventDefault(); equals(); }
+    else if (event.key === 'Backspace') removeLast();
+    else if (event.key === 'Escape') clear();
+    else handled = false;
+    if (handled) playKeySound();
+  });
+})();
+</script>
+</body>
+</html>
